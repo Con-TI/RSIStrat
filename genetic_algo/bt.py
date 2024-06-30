@@ -151,11 +151,14 @@ class BackTest():
         av_average_trades = torch.mean(average_trades)
         av_winrate = torch.mean(win_rates)
         av_max_drawdown = torch.mean(max_drawdown_tensor)
-        holding_dur_score = torch.tensor(3/av_holding_dur,device=device)
-        x = torch.stack([av_overall_return,av_overall_alpha,av_annual_alpha,av_average_trades,av_winrate,av_max_drawdown,holding_dur_score,ir_ratio])
-        fitness_score = torch.nanmean(x)
-        if fitness_score<0:
-            fitness_score=0
+        if av_holding_dur>40:
+            holding_dur_score = torch.tensor(40/av_holding_dur,device=device)
+        else:
+            holding_dur_score = torch.tensor(1,device=device)
+        # x = torch.stack([av_overall_return,av_overall_alpha,av_annual_alpha,av_average_trades,av_winrate,av_max_drawdown,holding_dur_score,ir_ratio])
+        # x = torch.stack([av_overall_return,av_overall_alpha,av_annual_alpha,av_average_trades,av_winrate,av_max_drawdown,ir_ratio])
+        x = torch.stack([av_overall_return,av_overall_alpha,av_annual_alpha,av_winrate,holding_dur_score])
+        fitness_score = torch.exp(torch.nanmean(x))
         return fitness_score**2
 
     def plot(self):

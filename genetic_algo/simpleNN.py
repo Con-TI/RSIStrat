@@ -29,13 +29,14 @@ def gen_inputs(data):
 
     inputs = pd.concat([i1,i2,i3,i4,i5,i6,i7],axis=1)
     inputs = (inputs-inputs.mean())/inputs.std()
+    inputs = pd.concat([inputs,inputs.shift(1),inputs.shift(2)],axis=1)
     return inputs
 
 class NN(nn.Module):
     def __init__(self,num_h):
         super(NN,self).__init__()
         self.hidden_layers = num_h
-        self.fcstart = nn.Linear(7,10)
+        self.fcstart = nn.Linear(21,10)
         self.fcmid = nn.Linear(10,10)
         self.fcend = nn.Linear(10,3)
         self.sigmoid = nn.Sigmoid()
@@ -93,11 +94,7 @@ def mutate(population,mutation_rate=0.5):
                 rand = rand/torch.abs(rand).max()*2
                 param.data.add_(rand*param.min())
 
-def plot_best_model(population,data,inputs,codes):
-    fitnesses = calc_fitness(population,data,inputs,codes)
-    max_fit = max(fitnesses)
-    idx_max = fitnesses.index(max_fit)
-    best_model = population[idx_max]
+def plot_best_model(best_model,data,inputs,codes):
     bt=BackTest(data)
     bt.rsi_calc(14)
     bounds = torch.zeros(data['Close'].transpose().shape,device=device,dtype=torch.float32)
@@ -109,26 +106,51 @@ def plot_best_model(population,data,inputs,codes):
         bounds[idx,:] = out[0,:]*40
         tps[idx,:] = out[1,:]/3
         sls[idx,:] = -out[2,:]/3
-    bt.run(bounds,tps,sls)
+    fitness_score = bt.run(bounds,tps,sls)
+    print(f"Best Fitness Score: {fitness_score}")
     bt.plot()
+    
 
 def main(data,inputs,codes,population_num=8,generations=20,parent_num=2):
-    population = [NN(3).to(device).eval() for i in range(population_num)]
+    try:
+        population = [NN(3).to(device) for i in range(population_num)]
+        for model in population:
+            model.load_state_dict(torch.load('model.pth'))
+            model.eval()
+    except:
+        population = [NN(3).to(device).eval() for i in range(population_num)]
     if population_num<=2:
         raise Exception("Need Higher Population Num")
+
+    best_model = {"Model":NN(3).to(device).eval(),"Fit":0}
 
     with torch.no_grad():
         for i in range(1,generations+1):
             fitnesses = calc_fitness(population,data,inputs,codes)
+            max_fit = max(fitnesses)
+            if max_fit>best_model['Fit']:
+                idx_max = fitnesses.index(max_fit)
+                best_model['Model'].load_state_dict(population[idx_max].state_dict())
+                best_model['Fit'] = max_fit
             print(f"Gen: {i}/{generations}, Max Fitness: {max(fitnesses)}")
             parents = select_parents(population,fitnesses,parent_num)
             population = crossover(parents,population)
             mutate(population)
-        plot_best_model(population,data,inputs,codes)
+        torch.save(best_model['Model'].state_dict(),'model.pth')
+        plot_best_model(best_model['Model'],data,inputs,codes)
 
 if __name__ == "__main__":
-    data = data.loc[:,data.columns.get_level_values(1).isin(codes[:1])].dropna()
+    turnovers = (data['Close']*data['Volume'])
+    turnovers = turnovers.loc[:,(1-(turnovers.rolling(10).mean()==0).any(axis=0)).astype(bool)].mean()
+    codes = list(turnovers[turnovers>10**9].index)
+    data = data.loc[:,data.columns.get_level_values(1).isin(codes[:2])].dropna()
     inputs = gen_inputs(data)
-    codes = codes[:1]
-    main(data,inputs,codes,generations=100)
+    codes = codes[:2]
+    main(data,inputs,codes,generations=5)
+    # best_model = NN(3).to(device)
+    # load = torch.load('model.pth')
+    # best_model.load_state_dict(load)
+    # best_model.eval()
+    # plot_best_model(best_model,data,inputs,codes)
+
 
