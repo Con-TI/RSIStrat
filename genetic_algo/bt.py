@@ -156,7 +156,7 @@ class BackTest():
         fitness_score = torch.nanmean(x)
         if fitness_score<0:
             fitness_score=0
-        return fitness_score
+        return fitness_score**2
 
     def plot(self):
         codes = list(self.data.columns.get_level_values(1).unique())
