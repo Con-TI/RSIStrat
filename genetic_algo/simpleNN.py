@@ -91,7 +91,7 @@ def mutate(population,mutation_rate=0.5):
             for param in population[i].parameters():
                 rand = torch.randn_like(param)
                 rand = rand/torch.abs(rand).max()*2
-                param.data.add_(rand*param.min())
+                param.data.add_(rand*param.min()*2)
 
 def plot_best_model(population,data,inputs,codes):
     fitnesses = calc_fitness(population,data,inputs,codes)
@@ -130,5 +130,5 @@ if __name__ == "__main__":
     data = data.loc[:,data.columns.get_level_values(1).isin(codes[:1])].dropna()
     inputs = gen_inputs(data)
     codes = codes[:1]
-    main(data,inputs,codes,generations=10)
+    main(data,inputs,codes,generations=100)
 
