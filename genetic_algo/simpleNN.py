@@ -91,7 +91,7 @@ def mutate(population,mutation_rate=0.5):
         if random.uniform(0,1)<mutation_rate:
             for param in population[i].parameters():
                 rand = torch.randn_like(param)
-                rand = rand/torch.abs(rand).max()*2
+                rand = rand/torch.abs(rand).max()
                 param.data.add_(rand*param.min())
 
 def plot_best_model(best_model,data,inputs,codes):
